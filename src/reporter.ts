@@ -51,14 +51,11 @@ export function emitAnnotations(
 	}
 }
 
-function cleanReason(reason: string): string {
-	const urlMatch = reason.match(/\(?(https?:\/\/[^\s)]+)\)?/);
-	const docsLink = urlMatch ? ` ([docs](${urlMatch[1]}))` : "";
-	const cleaned = reason
+function stripUrls(reason: string): string {
+	return reason
 		.replace(/\s*\(?https?:\/\/[^\s)]+\)?\s*/g, " ")
 		.replace(/\s*See the Rules of Hooks\s*/g, "")
 		.trim();
-	return cleaned + docsLink;
 }
 
 function formatFailureRow(
@@ -74,7 +71,7 @@ function formatFailureRow(
 			? `[\`${file}:${failure.line}\`](https://github.com/${repoSlug}/blob/${commitSha}/${file}#L${failure.line})`
 			: `\`${file}:${failure.line}\``;
 
-	const reason = cleanReason(failure.reason);
+	const reason = stripUrls(failure.reason);
 	const reasonText = failure.severity
 		? `\`${failure.severity}\` ${reason}`
 		: reason;
@@ -253,7 +250,7 @@ export function buildReport(
 		lines.push("");
 		lines.push("<details>");
 		lines.push(
-			`<summary>${totalSkipped} opted out via "use no memo"</summary>`,
+			`<summary>${totalSkipped} opted out ("use no memo")</summary>`,
 		);
 		lines.push("");
 
