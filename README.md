@@ -8,9 +8,9 @@ Catch React Compiler issues before they reach production.
 
 ## Why
 
-React Compiler memoizes your components and hooks automatically, but silently skips anything that violates the Rules of React. No warning, no error. You just don't get the optimization.
+React Compiler silently skips code it can’t optimize. Most CI checks report every violation, which buries new regressions in old debt and makes adoption harder.
 
-This action catches those silent skips in CI. It runs on every PR, compares against the base branch so you only see **new issues you introduced** and posts a report with inline annotations on the diff. The PR is where feedback drives fixes, whether the author is a person or an agent.
+This action fits the review workflow instead. It compares against the base branch and reports only what the PR introduced. Reviewers can scan it, authors can act on it and agents can fix it.
 
 ## Usage
 

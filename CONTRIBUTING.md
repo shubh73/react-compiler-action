@@ -30,10 +30,10 @@ bun run all           # Type check + test + build
 ```
 src/
   index.ts      # Entry point
-  main.ts       # Action orchestrator (reads inputs, coordinates everything)
-  checker.ts    # Core babel-plugin-react-compiler logic
-  reporter.ts   # Markdown report builder + GitHub annotations
-  comment.ts    # PR comment create/update/delete via Octokit
-  files.ts      # Changed-file detection + glob filtering
-  types.ts      # Shared TypeScript types
+  main.ts       # Orchestrator: reads inputs, coordinates everything
+  checker.ts    # Runs babel-plugin-react-compiler, collects events
+  reporter.ts   # Builds Markdown report and GitHub annotations
+  comment.ts    # PR comment create/update/delete
+  files.ts      # Changed-file detection and glob filtering
+  types.ts      # Shared types
 ```
