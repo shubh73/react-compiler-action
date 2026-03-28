@@ -4,8 +4,6 @@ Catch React Compiler issues before they reach production.
 
 [![CI](https://github.com/shubh73/react-compiler-action/actions/workflows/ci.yml/badge.svg)](https://github.com/shubh73/react-compiler-action/actions/workflows/ci.yml)
 
-[Why](#why) | [Usage](#usage) | [Inputs](#inputs) | [Outputs](#outputs) | [Examples](#examples) | [How it works](#how-it-works)
-
 <!-- TODO: Add screenshot of PR comment after first test run -->
 
 ## Why
