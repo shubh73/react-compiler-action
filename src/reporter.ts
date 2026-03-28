@@ -19,15 +19,14 @@ export function emitAnnotations(
 	for (const result of results) {
 		for (const failure of result.failures) {
 			if (count >= maxAnnotations) return;
-
 			if (failure.isNew === false) continue;
 
 			const name = failure.fnName ? `"${failure.fnName}"` : "A component";
 			const prefix = failure.isNew === true ? "[New] " : "";
 			const fullMessage =
 				failure.description && failure.description !== failure.reason
-					? `${prefix}${name} skipped by React Compiler: ${failure.reason}: ${failure.description}`
-					: `${prefix}${name} skipped by React Compiler: ${failure.reason}`;
+					? `${prefix}${name} skipped: ${failure.reason}: ${failure.description}`
+					: `${prefix}${name} skipped: ${failure.reason}`;
 
 			const message = truncate(fullMessage, MAX_ANNOTATION_MESSAGE_LENGTH);
 			const properties = {
@@ -59,23 +58,17 @@ function formatFailureRow(
 	commitSha: string | undefined,
 ): string {
 	const name = failure.fnName ?? "(anonymous)";
-	const reasonText =
-		failure.description && failure.description !== failure.reason
-			? `${failure.reason}: ${failure.description}`
-			: failure.reason;
-	const severityTag = failure.severity ? `\`${failure.severity}\` ` : "";
 
-	const fileDisplay =
+	const fileLink =
 		repoSlug && commitSha
-			? `[\`${file}\`](https://github.com/${repoSlug}/blob/${commitSha}/${file}#L${failure.line})`
-			: `\`${file}\``;
+			? `[\`${file}:${failure.line}\`](https://github.com/${repoSlug}/blob/${commitSha}/${file}#L${failure.line})`
+			: `\`${file}:${failure.line}\``;
 
-	const lineDisplay =
-		repoSlug && commitSha
-			? `[${failure.line}](https://github.com/${repoSlug}/blob/${commitSha}/${file}#L${failure.line})`
-			: `${failure.line}`;
+	const reasonText = failure.severity
+		? `\`${failure.severity}\` ${failure.reason}`
+		: failure.reason;
 
-	return `| ${fileDisplay} | \`${name}\` | ${lineDisplay} | ${severityTag}${reasonText} |`;
+	return `| ${fileLink} | \`${name}\` | ${reasonText} |`;
 }
 
 export function buildReport(
@@ -90,6 +83,7 @@ export function buildReport(
 		0,
 	);
 	const totalSkipped = results.reduce((n, r) => n + r.skipped.length, 0);
+	const totalFiles = results.length;
 
 	if (totalFailures === 0 && filesWithErrors.length === 0 && totalSkipped === 0)
 		return null;
@@ -110,33 +104,31 @@ export function buildReport(
 				0,
 			)
 		: 0;
+	const compiledCount = totalFiles - filesWithFailures.length - filesWithErrors.length;
 
 	const lines: string[] = [];
 
-	lines.push("## React Compiler Optimization Report");
+	// Header with stats
+	lines.push("### React Compiler Report");
 	lines.push("");
 
+	const stats: string[] = [];
+	stats.push(`**${totalFiles}** files scanned`);
+	if (compiledCount > 0) stats.push(`**${compiledCount}** compiled`);
 	if (totalFailures > 0) {
 		if (hasNewLabels) {
-			const parts: string[] = [];
-			if (newFailures > 0)
-				parts.push(
-					`**${newFailures}** new issue${newFailures === 1 ? "" : "s"} introduced in this PR`,
-				);
-			if (existingFailures > 0)
-				parts.push(
-					`${existingFailures} existing issue${existingFailures === 1 ? "" : "s"} in changed files`,
-				);
-			lines.push(parts.join(" · "));
+			if (newFailures > 0) stats.push(`**${newFailures}** new`);
+			if (existingFailures > 0) stats.push(`${existingFailures} existing`);
 		} else {
-			const headline =
-				totalFailures === 1
-					? "React Compiler skipped **1** component"
-					: `React Compiler skipped **${totalFailures}** components`;
-			lines.push(headline);
+			stats.push(`**${totalFailures}** skipped`);
 		}
-		lines.push("");
+	}
+	if (filesWithErrors.length > 0) stats.push(`${filesWithErrors.length} errors`);
+	lines.push(stats.join("  ·  "));
+	lines.push("");
 
+	// New issues table
+	if (totalFailures > 0) {
 		const newIssues = hasNewLabels
 			? results.flatMap((r) =>
 					r.failures
@@ -149,12 +141,12 @@ export function buildReport(
 
 		if (newIssues.length > 0) {
 			if (hasNewLabels) {
-				lines.push("### New (introduced in this PR)");
+				lines.push("#### New issues");
 				lines.push("");
 			}
 
-			lines.push("| File | Component | Line | Reason |");
-			lines.push("|------|-----------|------|--------|");
+			lines.push("| File | Component | Reason |");
+			lines.push("|------|-----------|--------|");
 
 			for (const { file, failure } of newIssues) {
 				lines.push(formatFailureRow(file, failure, repoSlug, commitSha));
@@ -163,6 +155,7 @@ export function buildReport(
 			lines.push("");
 		}
 
+		// Existing issues (collapsed)
 		if (hasNewLabels && existingFailures > 0) {
 			const existingIssues = results.flatMap((r) =>
 				r.failures
@@ -172,11 +165,11 @@ export function buildReport(
 
 			lines.push("<details>");
 			lines.push(
-				`<summary>Existing issues (${existingFailures}), already on the base branch</summary>`,
+				`<summary>${existingFailures} existing issue${existingFailures === 1 ? "" : "s"} (already on base branch)</summary>`,
 			);
 			lines.push("");
-			lines.push("| File | Component | Line | Reason |");
-			lines.push("|------|-----------|------|--------|");
+			lines.push("| File | Component | Reason |");
+			lines.push("|------|-----------|--------|");
 
 			for (const { file, failure } of existingIssues) {
 				lines.push(formatFailureRow(file, failure, repoSlug, commitSha));
@@ -187,11 +180,7 @@ export function buildReport(
 			lines.push("");
 		}
 
-		lines.push(
-			"> [React Compiler](https://react.dev/learn/react-compiler) automatically memoizes components and hooks that follow the [Rules of React](https://react.dev/reference/rules). Fix the issues above so the compiler can memoize them. No manual `useMemo`, `useCallback`, or `React.memo` needed.",
-		);
-		lines.push("");
-
+		// Fix with AI (collapsed)
 		const aiFailures = hasNewLabels
 			? results
 					.map((r) => ({
@@ -203,9 +192,7 @@ export function buildReport(
 
 		if (aiFailures.length > 0) {
 			lines.push("<details>");
-			lines.push(
-				"<summary>Fix with AI: paste this into Claude or Cursor</summary>",
-			);
+			lines.push("<summary>Fix with AI</summary>");
 			lines.push("");
 			lines.push("```");
 			lines.push(
@@ -229,19 +216,14 @@ export function buildReport(
 
 				for (const failure of result.failures) {
 					lines.push(
-						`  - Component: ${failure.fnName ?? "(anonymous)"} (line ${failure.line})`,
+						`  - ${failure.fnName ?? "(anonymous)"} (line ${failure.line}): ${failure.reason}`,
 					);
-					if (failure.severity) {
-						lines.push(`    Severity: ${failure.severity}`);
-					}
-					lines.push(`    Error: ${failure.reason}`);
 					if (failure.description) {
-						lines.push(`    Description: ${failure.description}`);
+						lines.push(`    ${failure.description}`);
 					}
 					if (failure.suggestions.length > 0) {
-						lines.push("    Suggestions:");
 						for (const s of failure.suggestions) {
-							lines.push(`      - ${s}`);
+							lines.push(`    Suggestion: ${s}`);
 						}
 					}
 				}
@@ -255,18 +237,19 @@ export function buildReport(
 		}
 	}
 
+	// Opt-outs (collapsed)
 	if (totalSkipped > 0) {
 		lines.push("");
 		lines.push("<details>");
 		lines.push(
-			`<summary>${totalSkipped} function(s) opted out via "use no memo"</summary>`,
+			`<summary>${totalSkipped} opted out via "use no memo"</summary>`,
 		);
 		lines.push("");
 
 		for (const result of results) {
 			for (const skip of result.skipped) {
 				const name = skip.fnName ?? "(anonymous)";
-				lines.push(`- \`${result.file}\`: \`${name}\` (line ${skip.line})`);
+				lines.push(`- \`${result.file}:${skip.line}\` \`${name}\``);
 			}
 		}
 
@@ -274,20 +257,18 @@ export function buildReport(
 		lines.push("</details>");
 	}
 
+	// Errors (collapsed)
 	if (filesWithErrors.length > 0) {
-		if (totalFailures === 0) {
-			lines.push(`**${filesWithErrors.length}** file(s) couldn't be analyzed`);
-			lines.push("");
-		}
-
+		lines.push("");
 		lines.push("<details>");
 		lines.push(
-			`<summary>Files with errors (${filesWithErrors.length})</summary>`,
+			`<summary>${filesWithErrors.length} file${filesWithErrors.length === 1 ? "" : "s"} with errors</summary>`,
 		);
 		lines.push("");
 
 		for (const result of filesWithErrors) {
-			lines.push(`- \`${result.file}\`: ${result.error}`);
+			const firstLine = (result.error ?? "").split("\n")[0];
+			lines.push(`- \`${result.file}\`: ${firstLine}`);
 		}
 
 		lines.push("");

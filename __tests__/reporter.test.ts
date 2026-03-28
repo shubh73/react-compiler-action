@@ -32,10 +32,10 @@ describe("buildReport", () => {
     const report = buildReport(results, undefined, undefined);
 
     expect(report).not.toBeNull();
-    expect(report).toContain("React Compiler Optimization Report");
+    expect(report).toContain("React Compiler Report");
     expect(report).toContain("BadComponent");
     expect(report).toContain("Mutating a variable");
-    expect(report).toContain("`src/bad.tsx`");
+    expect(report).toContain("src/bad.tsx");
   });
 
   it("includes clickable links when repo info is provided", () => {
@@ -150,10 +150,10 @@ describe("buildReport", () => {
     const report = buildReport(results, undefined, undefined);
 
     expect(report).not.toBeNull();
-    expect(report).toContain("**1** new issue introduced in this PR");
-    expect(report).toContain("1 existing issue in changed files");
-    expect(report).toContain("### New (introduced in this PR)");
-    expect(report).toContain("Existing issues (1)");
+    expect(report).toContain("**1** new");
+    expect(report).toContain("1 existing");
+    expect(report).toContain("#### New issues");
+    expect(report).toContain("1 existing issue (already on base branch)");
     expect(report).toContain("NewComp");
     expect(report).toContain("OldComp");
   });
@@ -181,7 +181,7 @@ describe("buildReport", () => {
 
     expect(report).not.toBeNull();
     expect(report).toContain("<details>");
-    expect(report).toContain("Existing issues (1)");
+    expect(report).toContain("1 existing issue (already on base branch)");
   });
 
   it("uses single-table format when isNew is undefined (full-scan)", () => {
