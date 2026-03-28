@@ -51,6 +51,16 @@ export function emitAnnotations(
 	}
 }
 
+function cleanReason(reason: string): string {
+	const urlMatch = reason.match(/\(?(https?:\/\/[^\s)]+)\)?/);
+	const docsLink = urlMatch ? ` ([docs](${urlMatch[1]}))` : "";
+	const cleaned = reason
+		.replace(/\s*\(?https?:\/\/[^\s)]+\)?\s*/g, " ")
+		.replace(/\s*See the Rules of Hooks\s*/g, "")
+		.trim();
+	return cleaned + docsLink;
+}
+
 function formatFailureRow(
 	file: string,
 	failure: ParsedFailure,
@@ -64,9 +74,10 @@ function formatFailureRow(
 			? `[\`${file}:${failure.line}\`](https://github.com/${repoSlug}/blob/${commitSha}/${file}#L${failure.line})`
 			: `\`${file}:${failure.line}\``;
 
+	const reason = cleanReason(failure.reason);
 	const reasonText = failure.severity
-		? `\`${failure.severity}\` ${failure.reason}`
-		: failure.reason;
+		? `\`${failure.severity}\` ${reason}`
+		: reason;
 
 	return `| ${fileLink} | \`${name}\` | ${reasonText} |`;
 }
