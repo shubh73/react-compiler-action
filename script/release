@@ -1,0 +1,66 @@
+#!/bin/bash
+# Release script for creating versioned tags
+# Usage: ./script/release
+#
+# Creates a semver tag (e.g., v1.0.0) and updates the floating
+# major tag (e.g., v1) to point to the same commit.
+# Consumers reference: uses: shubh73/react-compiler-action@v1
+
+set -euo pipefail
+
+# Get latest tag
+LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+echo "Latest tag: $LATEST_TAG"
+
+# Prompt for new version
+read -rp "New version (e.g., v1.0.0): " NEW_TAG
+
+# Validate format
+if [[ ! "$NEW_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "Error: Tag must match vX.Y.Z format"
+  exit 1
+fi
+
+# Check package.json version matches (without the v prefix)
+PKG_VERSION=$(node -p "require('./package.json').version")
+TAG_VERSION="${NEW_TAG#v}"
+if [[ "$PKG_VERSION" != "$TAG_VERSION" ]]; then
+  echo "Warning: package.json version ($PKG_VERSION) doesn't match tag ($TAG_VERSION)"
+  read -rp "Continue anyway? [y/N] " CONTINUE
+  if [[ "$CONTINUE" != "y" && "$CONTINUE" != "Y" ]]; then
+    exit 1
+  fi
+fi
+
+# Extract major version
+MAJOR_TAG="v$(echo "$NEW_TAG" | cut -d. -f1 | tr -d 'v')"
+
+echo ""
+echo "Will create:"
+echo "  Tag: $NEW_TAG"
+echo "  Floating major tag: $MAJOR_TAG (force-updated)"
+echo ""
+read -rp "Proceed? [y/N] " CONFIRM
+
+if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
+  echo "Aborted."
+  exit 0
+fi
+
+# Ensure dist/ is up to date
+echo "Building dist/..."
+bun run build
+
+# Create the version tag
+git tag -a "$NEW_TAG" -m "Release $NEW_TAG"
+
+# Force-update the floating major tag
+git tag -fa "$MAJOR_TAG" -m "Update $MAJOR_TAG to $NEW_TAG"
+
+# Push
+git push origin "$NEW_TAG"
+git push origin "$MAJOR_TAG" --force
+
+echo ""
+echo "Released $NEW_TAG"
+echo "Consumers can use: uses: shubh73/react-compiler-action@$MAJOR_TAG"

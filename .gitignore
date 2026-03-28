@@ -1,0 +1,10 @@
+node_modules/
+lib/
+coverage/
+*.log
+.DS_Store
+.env
+.env.*
+
+# Keep dist/ committed — it's the bundled action
+!dist/

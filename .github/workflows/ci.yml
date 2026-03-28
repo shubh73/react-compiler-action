@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Lint, Type Check & Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install --frozen-lockfile
+
+      - name: Type check
+        run: bun run check-types
+
+      - name: Test
+        run: bun run test
+
+  test-action:
+    name: Self-test Action
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./
+        id: check
+        with:
+          changed-files-only: "false"
+          post-comment: "false"
+          annotations: "false"
+          working-directory: "__tests__/fixtures"
+          include-patterns: |
+            **/*.tsx
+            **/*.ts
+
+      - name: Verify outputs
+        run: |
+          echo "failure-count: ${{ steps.check.outputs.failure-count }}"
+          echo "file-count: ${{ steps.check.outputs.file-count }}"
+          echo "has-failures: ${{ steps.check.outputs.has-failures }}"

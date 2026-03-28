@@ -1,0 +1,87 @@
+name: React Compiler Action
+description: Catch React Compiler issues before they reach production
+author: shubh73
+branding:
+  icon: zap
+  color: blue
+
+inputs:
+  token:
+    description: GitHub token for PR comments and API access
+    default: ${{ github.token }}
+
+  changed-files-only:
+    description: Only check files changed in the PR. Set to 'false' for a full project scan.
+    default: "true"
+
+  fail-on-error:
+    description: Fail the step when new compiler issues are found
+    default: "false"
+
+  post-comment:
+    description: Post or update a PR comment with the report
+    default: "true"
+
+  annotations:
+    description: Add inline annotations on the PR diff
+    default: "true"
+
+  annotation-level:
+    description: "Severity level for annotations: warning | error | notice"
+    default: "warning"
+
+  compilation-mode:
+    description: "Compiler mode: infer, annotation, or all"
+    default: "infer"
+
+  working-directory:
+    description: Root directory for file discovery
+    default: "."
+
+  include-patterns:
+    description: Newline-separated glob patterns for files to include
+    default: |
+      **/*.ts
+      **/*.tsx
+      **/*.js
+      **/*.jsx
+
+  exclude-patterns:
+    description: Newline-separated glob patterns to exclude
+    default: |
+      node_modules/**
+      dist/**
+      build/**
+      .next/**
+      .expo/**
+      android/**
+      ios/**
+      **/*.d.ts
+      **/*.test.*
+      **/*.spec.*
+
+outputs:
+  failure-count:
+    description: Total number of components React Compiler skipped
+
+  new-failure-count:
+    description: Components newly skipped in this PR (not on base branch)
+
+  existing-failure-count:
+    description: Components already skipped on the base branch
+
+  file-count:
+    description: Number of files scanned
+
+  has-failures:
+    description: Whether any failures were found ('true' or 'false')
+
+  report:
+    description: Full Markdown report, available even if post-comment is disabled
+
+  comment-id:
+    description: GitHub comment ID if a comment was posted
+
+runs:
+  using: node24
+  main: dist/index.js

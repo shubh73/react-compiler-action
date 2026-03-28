@@ -1,0 +1,37 @@
+{
+	"name": "react-compiler-action",
+	"version": "0.1.0",
+	"private": true,
+	"description": "Catch React Compiler issues before they reach production",
+	"author": "shubh73",
+	"license": "MIT",
+	"homepage": "https://github.com/shubh73/react-compiler-action",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/shubh73/react-compiler-action.git"
+	},
+	"main": "dist/index.js",
+	"scripts": {
+		"build": "ncc build src/index.ts -o dist --source-map --license licenses.txt",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"check-types": "tsc --noEmit",
+		"all": "bun run check-types && bun run test && bun run build"
+	},
+	"dependencies": {
+		"@actions/core": "^1.11.1",
+		"@actions/github": "^6.0.0",
+		"@babel/core": "^7.26.0",
+		"@babel/parser": "^7.26.0",
+		"babel-plugin-react-compiler": "^19.1.0-rc.2",
+		"picomatch": "^4.0.2"
+	},
+	"devDependencies": {
+		"@types/babel__core": "^7.20.5",
+		"@types/node": "^22.0.0",
+		"@types/picomatch": "^3.0.1",
+		"@vercel/ncc": "^0.38.3",
+		"typescript": "^5.7.0",
+		"vitest": "^3.0.0"
+	}
+}
