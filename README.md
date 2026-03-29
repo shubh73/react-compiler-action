@@ -1,10 +1,32 @@
-# React Compiler Action
+<div align="center">
+  <h1>react-compiler-action</h1>
+  <p>Catch React Compiler issues before they reach production.</p>
+</div>
 
-Catch React Compiler issues before they reach production.
+<p align="center">
+  <a href="https://github.com/shubh73/react-compiler-action/releases">
+    <img src="https://img.shields.io/github/v/release/shubh73/react-compiler-action?style=flat-square" alt="Latest release" />
+  </a>
+  <a href="https://github.com/shubh73/react-compiler-action/actions/workflows/ci.yml">
+    <img src="https://github.com/shubh73/react-compiler-action/actions/workflows/ci.yml/badge.svg" alt="CI" />
+  </a>
+</p>
 
-[![CI](https://github.com/shubh73/react-compiler-action/actions/workflows/ci.yml/badge.svg)](https://github.com/shubh73/react-compiler-action/actions/workflows/ci.yml)
+<p align="center">
+  <a href="#why"><b>Why</b></a>
+  &nbsp;&nbsp;&middot;&nbsp;&nbsp;
+  <a href="#usage"><b>Usage</b></a>
+  &nbsp;&nbsp;&middot;&nbsp;&nbsp;
+  <a href="#inputs"><b>Inputs</b></a>
+  &nbsp;&nbsp;&middot;&nbsp;&nbsp;
+  <a href="#examples"><b>Examples</b></a>
+  &nbsp;&nbsp;&middot;&nbsp;&nbsp;
+  <a href="#how-it-works"><b>How it works</b></a>
+</p>
 
-![PR comment showing React Compiler report](.github/assets/pr-comment.png)
+<p align="center">
+  <img src=".github/assets/pr-comment.png" alt="PR comment showing React Compiler report" width="700" />
+</p>
 
 ## Why
 
