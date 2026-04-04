@@ -4,12 +4,9 @@
 </div>
 
 <p align="center">
-  <a href="https://github.com/shubh73/react-compiler-action/releases">
-    <img src="https://img.shields.io/github/v/release/shubh73/react-compiler-action?style=flat-square" alt="Latest release" />
-  </a>
-  <a href="https://github.com/shubh73/react-compiler-action/actions/workflows/ci.yml">
-    <img src="https://github.com/shubh73/react-compiler-action/actions/workflows/ci.yml/badge.svg" alt="CI" />
-  </a>
+  <a href="https://github.com/shubh73/react-compiler-action/releases"><img src="https://img.shields.io/github/v/release/shubh73/react-compiler-action?color=black" alt="Latest release" /></a>
+  <a href="https://github.com/shubh73/react-compiler-action/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/shubh73/react-compiler-action/ci.yml?label=ci&color=black" alt="CI" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/shubh73/react-compiler-action?color=black" alt="License" /></a>
 </p>
 
 <p align="center">
@@ -18,6 +15,8 @@
   <a href="#usage"><b>Usage</b></a>
   &nbsp;&nbsp;&middot;&nbsp;&nbsp;
   <a href="#inputs"><b>Inputs</b></a>
+  &nbsp;&nbsp;&middot;&nbsp;&nbsp;
+  <a href="#outputs"><b>Outputs</b></a>
   &nbsp;&nbsp;&middot;&nbsp;&nbsp;
   <a href="#examples"><b>Examples</b></a>
   &nbsp;&nbsp;&middot;&nbsp;&nbsp;
