@@ -1,6 +1,6 @@
 {
 	"name": "react-compiler-action",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"private": true,
 	"description": "Catch React Compiler issues before they reach production",
 	"author": "Shubh Porwal (https://github.com/shubh73)",
