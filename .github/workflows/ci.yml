@@ -33,6 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
 
@@ -40,8 +41,8 @@ jobs:
         id: check
         with:
           changed-files-only: "false"
-          post-comment: "false"
-          annotations: "false"
+          post-comment: ${{ github.event_name == 'pull_request' && 'true' || 'false' }}
+          annotations: ${{ github.event_name == 'pull_request' && 'true' || 'false' }}
           working-directory: "__tests__/fixtures"
           include-patterns: |
             **/*.tsx
