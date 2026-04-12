@@ -1,11 +1,11 @@
 {
 	"name": "react-compiler-action",
-	"version": "0.1.0",
+	"version": "1.0.0",
 	"private": true,
 	"description": "Catch React Compiler issues before they reach production",
-	"author": "shubh73",
+	"author": "Shubh Porwal (https://github.com/shubh73)",
 	"license": "MIT",
-	"homepage": "https://github.com/shubh73/react-compiler-action",
+	"homepage": "https://github.com/shubh73/react-compiler-action#readme",
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/shubh73/react-compiler-action.git"
