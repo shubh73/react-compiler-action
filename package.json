@@ -31,7 +31,7 @@
 		"@types/node": "^22.0.0",
 		"@types/picomatch": "^3.0.1",
 		"@vercel/ncc": "^0.38.3",
-		"typescript": "^5.7.0",
+		"typescript": "^6.0.2",
 		"vitest": "^3.0.0"
 	}
 }
