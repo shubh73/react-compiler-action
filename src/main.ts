@@ -83,7 +83,10 @@ function labelNewVsExisting(
 ): void {
 	for (const failure of headResult.failures) {
 		const existsOnBase = baseResult.failures.some(
-			(base) => base.fnName === failure.fnName && base.reason === failure.reason,
+			(base) =>
+				base.fnName === failure.fnName &&
+				base.reason === failure.reason &&
+				base.line === failure.line,
 		);
 		failure.isNew = !existsOnBase;
 	}

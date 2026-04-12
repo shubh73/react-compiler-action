@@ -1,18 +1,37 @@
-# React Compiler Action
+<div align="center">
+  <h1>react-compiler-action</h1>
+  <p>Catch React Compiler issues before they reach production.</p>
+</div>
 
-Catch React Compiler issues before they reach production.
+<p align="center">
+  <a href="https://github.com/shubh73/react-compiler-action/releases"><img src="https://img.shields.io/github/v/release/shubh73/react-compiler-action?color=black" alt="Latest release" /></a>
+  <a href="https://github.com/shubh73/react-compiler-action/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/shubh73/react-compiler-action/ci.yml?label=ci&color=black" alt="CI" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/shubh73/react-compiler-action?color=black" alt="License" /></a>
+</p>
 
-[![CI](https://github.com/shubh73/react-compiler-action/actions/workflows/ci.yml/badge.svg)](https://github.com/shubh73/react-compiler-action/actions/workflows/ci.yml)
+<p align="center">
+  <a href="#why"><b>Why</b></a>
+  &nbsp;&nbsp;&middot;&nbsp;&nbsp;
+  <a href="#usage"><b>Usage</b></a>
+  &nbsp;&nbsp;&middot;&nbsp;&nbsp;
+  <a href="#inputs"><b>Inputs</b></a>
+  &nbsp;&nbsp;&middot;&nbsp;&nbsp;
+  <a href="#outputs"><b>Outputs</b></a>
+  &nbsp;&nbsp;&middot;&nbsp;&nbsp;
+  <a href="#examples"><b>Examples</b></a>
+  &nbsp;&nbsp;&middot;&nbsp;&nbsp;
+  <a href="#how-it-works"><b>How it works</b></a>
+</p>
 
-[Why](#why) | [Usage](#usage) | [Inputs](#inputs) | [Outputs](#outputs) | [Examples](#examples) | [How it works](#how-it-works)
-
-<!-- TODO: Add screenshot of PR comment after first test run -->
+<p align="center">
+  <img src=".github/assets/pr-comment.png" alt="PR comment showing React Compiler report" width="700" />
+</p>
 
 ## Why
 
-React Compiler memoizes your components and hooks automatically, but silently skips anything that violates the Rules of React. No warning, no error. You just don't get the optimization.
+React Compiler silently skips code it can’t optimize. Most CI checks report every violation, which buries new regressions in old debt and makes adoption harder.
 
-This action catches those silent skips in CI. It runs on every PR, compares against the base branch so you only see **new issues you introduced** and posts a report with inline annotations on the diff. The PR is where feedback drives fixes, whether the author is a person or an agent.
+This action fits the review workflow instead. It compares against the base branch and reports only what the PR introduced. Reviewers can scan it, authors can act on it and agents can fix it.
 
 ## Usage
 
