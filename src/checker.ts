@@ -3,7 +3,9 @@ import * as parser from "@babel/parser";
 import * as fs from "fs";
 import * as path from "path";
 
-import { OPT_OUT_DIRECTIVES } from "babel-plugin-react-compiler";
+import reactCompilerPlugin, {
+	OPT_OUT_DIRECTIVES,
+} from "babel-plugin-react-compiler";
 
 import type {
 	CompilerEvent,
@@ -196,7 +198,7 @@ export function checkCode(
 			filename,
 			plugins: [
 				[
-					"babel-plugin-react-compiler",
+					reactCompilerPlugin,
 					{
 						noEmit: true,
 						compilationMode,
