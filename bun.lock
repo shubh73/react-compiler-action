@@ -9,7 +9,7 @@
         "@actions/github": "^6.0.0",
         "@babel/core": "^7.26.0",
         "@babel/parser": "^7.26.0",
-        "babel-plugin-react-compiler": "^19.1.0-rc.2",
+        "babel-plugin-react-compiler": "^19.1.0-rc.3",
         "picomatch": "^4.0.2",
       },
       "devDependencies": {
@@ -235,7 +235,7 @@
 
     "assertion-error": ["assertion-error@2.0.1", "", {}, "sha512-Izi8RQcffqCeNVgFigKli1ssklIbpHnCYc6AknXGYoB6grJqyeby7jv12JUQgmTAnIDnbck1uxksT4dzN3PWBA=="],
 
-    "babel-plugin-react-compiler": ["babel-plugin-react-compiler@19.1.0-rc.1-rc-af1b7da-20250421", "", { "dependencies": { "@babel/types": "^7.26.0" } }, "sha512-E3kaokBhWDLf7ZD8fuYjYn0ZJHYZ+3EHtAWCdX2hl4lpu1z9S/Xr99sxhx2bTCVB41oIesz9FtM8f4INsrZaOw=="],
+    "babel-plugin-react-compiler": ["babel-plugin-react-compiler@19.1.0-rc.3", "", { "dependencies": { "@babel/types": "^7.26.0" } }, "sha512-mjRn69WuTz4adL0bXGx8Rsyk1086zFJeKmes6aK0xPuK3aaXmDJdLHqwKKMrpm6KAI1MCoUK72d2VeqQbu8YIA=="],
 
     "baseline-browser-mapping": ["baseline-browser-mapping@2.10.12", "", { "bin": { "baseline-browser-mapping": "dist/cli.cjs" } }, "sha512-qyq26DxfY4awP2gIRXhhLWfwzwI+N5Nxk6iQi8EFizIaWIjqicQTE4sLnZZVdeKPRcVNoJOkkpfzoIYuvCKaIQ=="],
 
