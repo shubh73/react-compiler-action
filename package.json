@@ -22,7 +22,7 @@
 		"@actions/core": "^1.11.1",
 		"@actions/github": "^6.0.0",
 		"@babel/core": "^7.26.0",
-		"@babel/parser": "^7.26.0",
+		"@babel/parser": "^7.29.3",
 		"babel-plugin-react-compiler": "^19.1.0-rc.3",
 		"picomatch": "^4.0.2"
 	},
