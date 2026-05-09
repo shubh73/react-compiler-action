@@ -5,9 +5,11 @@
 1. Update `version` in `package.json`
 2. `bun install` to refresh the lockfile
 3. `bun run all` (type check + test + build)
-4. Commit and push to `main`
-5. Create a GitHub Release with tag `vX.Y.Z`
-6. Update the floating major tag:
+4. Commit `src/`, `dist/`, and `package.json` together (the `check-dist`
+   workflow enforces that `dist/` matches `src/`) and push to `main`
+5. Wait for CI to go green on `main` before tagging
+6. Create a GitHub Release with tag `vX.Y.Z`
+7. Update the floating major tag:
    ```bash
    git tag -fa v1 -m "Update v1 to vX.Y.Z"
    git push origin v1 --force

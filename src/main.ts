@@ -6,6 +6,7 @@ import * as path from "path";
 import { checkCode, checkFile } from "./checker";
 import { upsertComment } from "./comment";
 import {
+	type ChangedFile,
 	filterFiles,
 	getAllFiles,
 	getBaseFileContent,
@@ -56,6 +57,10 @@ function parseInputs(): ActionInputs {
 	};
 }
 
+function toChangedFiles(files: string[]): ChangedFile[] {
+	return files.map((file) => ({ path: file, basePath: file }));
+}
+
 function detectCompilerVersionMismatch(workingDir: string): void {
 	try {
 		const bundledPkg = require("babel-plugin-react-compiler/package.json");
@@ -99,13 +104,27 @@ export async function run(): Promise<void> {
 
 		detectCompilerVersionMismatch(workingDir);
 
-		let files: string[];
+		const reportNotes: string[] = [];
 		const prNumber = github.context.payload.pull_request?.number;
 		const baseRef = github.context.payload.pull_request?.base?.ref;
+		let hasPrComparison = inputs.changedFilesOnly && !!baseRef;
 
+		let files: ChangedFile[];
 		if (inputs.changedFilesOnly && baseRef) {
 			core.info(`Checking files changed against ${baseRef}...`);
-			files = getChangedFiles(baseRef, workingDir);
+			const changedFiles = getChangedFiles(baseRef, workingDir);
+			if (changedFiles.ok) {
+				files = changedFiles.files;
+			} else {
+				hasPrComparison = false;
+				core.warning(
+					`${changedFiles.reason} Falling back to a full scan without new-vs-existing comparison.`,
+				);
+				reportNotes.push(
+					"Changed-file detection failed, so this report uses a full scan and does not classify issues as new vs. existing.",
+				);
+				files = toChangedFiles(getAllFiles(workingDir));
+			}
 		} else {
 			if (inputs.changedFilesOnly && !baseRef) {
 				core.info(
@@ -113,50 +132,52 @@ export async function run(): Promise<void> {
 				);
 			}
 			core.info("Scanning all files...");
-			files = getAllFiles(workingDir);
+			files = toChangedFiles(getAllFiles(workingDir));
 		}
 
-		files = filterFiles(files, inputs.includePatterns, inputs.excludePatterns);
+		const filteredPaths = new Set(
+			filterFiles(
+				files.map((file) => file.path),
+				inputs.includePatterns,
+				inputs.excludePatterns,
+			),
+		);
+		files = files.filter((file) => filteredPaths.has(file.path));
 		files = files.filter((f) => {
-			const fullPath = path.resolve(workingDir, f);
+			const fullPath = path.resolve(workingDir, f.path);
 			return fs.existsSync(fullPath);
 		});
 
 		if (files.length === 0) {
 			core.info("No matching files to check.");
-
-			if (inputs.postComment && prNumber) {
-				await upsertComment(inputs.token, prNumber, null);
-			}
-
-			core.setOutput("failure-count", "0");
-			core.setOutput("new-failure-count", "0");
-			core.setOutput("existing-failure-count", "0");
-			core.setOutput("file-count", "0");
-			core.setOutput("has-failures", "false");
-			core.setOutput("report", "");
-			core.setOutput("comment-id", "");
-			return;
+		} else {
+			core.info(
+				`Checking ${files.length} file(s) with compilation mode "${inputs.compilationMode}"...`,
+			);
 		}
 
-		core.info(
-			`Checking ${files.length} file(s) with compilation mode "${inputs.compilationMode}"...`,
-		);
-
 		const results = files.map((f) => {
-			const fullPath = path.resolve(workingDir, f);
+			const fullPath = path.resolve(workingDir, f.path);
 			return checkFile(fullPath, inputs.compilationMode);
 		});
 
 		for (const result of results) {
-			result.file = path.relative(workingDir, result.file);
+			result.file = path
+				.relative(workingDir, result.file)
+				.split(path.sep)
+				.join("/");
 		}
 
-		let hasPrComparison = inputs.changedFilesOnly && !!baseRef;
+		const basePathByFile = new Map(
+			files.map((file) => [file.path, file.basePath]),
+		);
 		if (hasPrComparison && !isBaseRefReachable(baseRef!, workingDir)) {
 			core.warning(
 				`origin/${baseRef} is not reachable. Skipping new-vs-existing comparison. ` +
 					"Ensure fetch-depth: 0 in your checkout step.",
+			);
+			reportNotes.push(
+				`origin/${baseRef} was not reachable, so issues are not classified as new vs. existing. Ensure fetch-depth: 0 in your checkout step.`,
 			);
 			hasPrComparison = false;
 		}
@@ -165,13 +186,14 @@ export async function run(): Promise<void> {
 			for (const result of results) {
 				if (result.failures.length === 0) continue;
 
-				const base = getBaseFileContent(baseRef!, result.file, workingDir);
+				const basePath = basePathByFile.get(result.file) ?? result.file;
+				const base = getBaseFileContent(baseRef!, basePath, workingDir);
 
 				if (!base.exists) {
 					for (const f of result.failures) f.isNew = true;
 				} else if (base.content === null) {
 					core.warning(
-						`Could not read base version of ${result.file}. ` +
+						`Could not read base version of ${basePath}. ` +
 							"Skipping new-vs-existing comparison for this file.",
 					);
 				} else {
@@ -200,8 +222,9 @@ export async function run(): Promise<void> {
 		}
 
 		const repoSlug = process.env.GITHUB_REPOSITORY;
-		const commitSha = github.context.sha;
-		const report = buildReport(results, repoSlug, commitSha);
+		const commitSha =
+			github.context.payload.pull_request?.head?.sha ?? github.context.sha;
+		const report = buildReport(results, repoSlug, commitSha, reportNotes);
 
 		let commentId: number | null = null;
 		if (inputs.postComment && prNumber) {
@@ -230,7 +253,7 @@ export async function run(): Promise<void> {
 					`${totalFailures} component(s) not optimized by React Compiler.`,
 				);
 			}
-		} else {
+		} else if (files.length > 0) {
 			core.info(
 				`All ${files.length} file(s) passed. React Compiler can memoize every component.`,
 			);

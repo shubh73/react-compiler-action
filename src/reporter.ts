@@ -3,6 +3,7 @@ import * as core from "@actions/core";
 import type { AnnotationLevel, FileResult, ParsedFailure } from "./types";
 
 const MAX_ANNOTATION_MESSAGE_LENGTH = 150;
+const SERVER_URL = process.env.GITHUB_SERVER_URL ?? "https://github.com";
 
 function truncate(str: string, maxLen: number): string {
 	if (str.length <= maxLen) return str;
@@ -68,7 +69,7 @@ function formatFailureRow(
 
 	const fileLink =
 		repoSlug && commitSha
-			? `[\`${file}:${failure.line}\`](https://github.com/${repoSlug}/blob/${commitSha}/${file}#L${failure.line})`
+			? `[\`${file}:${failure.line}\`](${SERVER_URL}/${repoSlug}/blob/${commitSha}/${file}#L${failure.line})`
 			: `\`${file}:${failure.line}\``;
 
 	const reason = stripUrls(failure.reason);
@@ -79,10 +80,23 @@ function formatFailureRow(
 	return `| ${fileLink} | \`${name}\` | ${reasonText} |`;
 }
 
+function formatCommitLine(
+	repoSlug: string | undefined,
+	commitSha: string | undefined,
+): string | null {
+	if (!commitSha) return null;
+
+	const shortSha = commitSha.slice(0, 10);
+	if (!repoSlug) return `Commit: \`${shortSha}\``;
+
+	return `Commit: [\`${shortSha}\`](${SERVER_URL}/${repoSlug}/commit/${commitSha})`;
+}
+
 export function buildReport(
 	results: FileResult[],
 	repoSlug: string | undefined,
 	commitSha: string | undefined,
+	notes: string[] = [],
 ): string | null {
 	const filesWithFailures = results.filter((r) => r.failures.length > 0);
 	const filesWithErrors = results.filter((r) => r.error);
@@ -93,7 +107,12 @@ export function buildReport(
 	const totalSkipped = results.reduce((n, r) => n + r.skipped.length, 0);
 	const totalFiles = results.length;
 
-	if (totalFailures === 0 && filesWithErrors.length === 0 && totalSkipped === 0)
+	if (
+		totalFailures === 0 &&
+		filesWithErrors.length === 0 &&
+		totalSkipped === 0 &&
+		notes.length === 0
+	)
 		return null;
 
 	const hasNewLabels = results.some((r) =>
@@ -120,6 +139,12 @@ export function buildReport(
 	lines.push("### React Compiler Report");
 	lines.push("");
 
+	const commitLine = formatCommitLine(repoSlug, commitSha);
+	if (commitLine) {
+		lines.push(commitLine);
+		lines.push("");
+	}
+
 	const stats: string[] = [];
 	stats.push(`**${totalFiles}** files scanned`);
 	if (compiledCount > 0) stats.push(`**${compiledCount}** compiled`);
@@ -134,6 +159,11 @@ export function buildReport(
 	if (filesWithErrors.length > 0) stats.push(`${filesWithErrors.length} errors`);
 	lines.push(stats.join("  ·  "));
 	lines.push("");
+
+	for (const note of notes) {
+		lines.push(`> ${note}`);
+		lines.push("");
+	}
 
 	// New issues table
 	if (totalFailures > 0) {

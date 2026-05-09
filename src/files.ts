@@ -3,18 +3,56 @@ import * as fs from "fs";
 import * as path from "path";
 import picomatch from "picomatch";
 
-export function getChangedFiles(baseRef: string, workingDir: string): string[] {
+export type ChangedFile = {
+	path: string;
+	basePath: string;
+};
+
+export type ChangedFilesResult =
+	| { ok: true; files: ChangedFile[] }
+	| { ok: false; reason: string };
+
+function parseNameStatus(output: string): ChangedFile[] {
+	return output
+		.split("\n")
+		.map((line) => line.trim())
+		.filter(Boolean)
+		.map((line) => {
+			const [status, firstPath, secondPath] = line.split("\t");
+			if (status.startsWith("R") && secondPath) {
+				return { path: secondPath, basePath: firstPath };
+			}
+			if (status.startsWith("C") && secondPath) {
+				return { path: secondPath, basePath: secondPath };
+			}
+			return { path: firstPath, basePath: firstPath };
+		})
+		.filter((file) => file.path);
+}
+
+function formatGitError(error: unknown): string {
+	if (error instanceof Error) return error.message;
+	return String(error);
+}
+
+export function getChangedFiles(
+	baseRef: string,
+	workingDir: string,
+): ChangedFilesResult {
 	try {
 		const output = execFileSync(
 			"git",
-			["diff", "--name-only", "--diff-filter=ACMR", `origin/${baseRef}...HEAD`],
+			[
+				"diff",
+				"--name-status",
+				"--find-renames",
+				"--diff-filter=ACMR",
+				`origin/${baseRef}...HEAD`,
+			],
 			{ cwd: workingDir, encoding: "utf-8", timeout: 30_000 },
 		);
-		return output
-			.split("\n")
-			.map((f) => f.trim())
-			.filter(Boolean);
-	} catch {
+		return { ok: true, files: parseNameStatus(output) };
+	} catch (firstError) {
 		try {
 			const mergeBase = execFileSync(
 				"git",
@@ -24,15 +62,23 @@ export function getChangedFiles(baseRef: string, workingDir: string): string[] {
 
 			const output = execFileSync(
 				"git",
-				["diff", "--name-only", "--diff-filter=ACMR", `${mergeBase}...HEAD`],
+				[
+					"diff",
+					"--name-status",
+					"--find-renames",
+					"--diff-filter=ACMR",
+					`${mergeBase}...HEAD`,
+				],
 				{ cwd: workingDir, encoding: "utf-8", timeout: 30_000 },
 			);
-			return output
-				.split("\n")
-				.map((f) => f.trim())
-				.filter(Boolean);
-		} catch {
-			return [];
+			return { ok: true, files: parseNameStatus(output) };
+		} catch (secondError) {
+			return {
+				ok: false,
+				reason:
+					`Could not determine changed files. Primary diff failed: ${formatGitError(firstError)}. ` +
+					`Fallback diff failed: ${formatGitError(secondError)}.`,
+			};
 		}
 	}
 }
