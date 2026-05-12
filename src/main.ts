@@ -82,18 +82,116 @@ function detectCompilerVersionMismatch(workingDir: string): void {
 	} catch {}
 }
 
-function labelNewVsExisting(
+function failureIdentity(failure: ParsedFailure): string {
+	return JSON.stringify([
+		failure.fnName ?? "",
+		failure.severity,
+		failure.reason,
+		failure.description,
+	]);
+}
+
+// Order-preserving assignment of head failures to base failures, maximizing the
+// number of matched pairs and minimizing the total line drift among matches.
+// A greedy "closest-pair-first" walk produces wrong answers when an early local
+// optimum blocks a globally better assignment (e.g. base=[3,5], head=[1,4,6]).
+function matchExistingFailures(
+	headFailures: ParsedFailure[],
+	baseFailures: ParsedFailure[],
+): Set<number> {
+	const sortedHead = headFailures
+		.map((f, originalIndex) => ({ line: f.line, originalIndex }))
+		.sort((a, b) => a.line - b.line);
+	const sortedBase = baseFailures
+		.map((f) => f.line)
+		.sort((a, b) => a - b);
+
+	const H = sortedHead.length;
+	const B = sortedBase.length;
+	const matches: number[][] = Array.from({ length: H + 1 }, () =>
+		new Array(B + 1).fill(0),
+	);
+	const cost: number[][] = Array.from({ length: H + 1 }, () =>
+		new Array(B + 1).fill(0),
+	);
+
+	for (let i = 1; i <= H; i++) {
+		for (let j = 1; j <= B; j++) {
+			const matchM = matches[i - 1][j - 1] + 1;
+			const matchC =
+				cost[i - 1][j - 1] + Math.abs(sortedHead[i - 1].line - sortedBase[j - 1]);
+			let bestM = matches[i - 1][j];
+			let bestC = cost[i - 1][j];
+			if (
+				matches[i][j - 1] > bestM ||
+				(matches[i][j - 1] === bestM && cost[i][j - 1] < bestC)
+			) {
+				bestM = matches[i][j - 1];
+				bestC = cost[i][j - 1];
+			}
+			if (matchM > bestM || (matchM === bestM && matchC < bestC)) {
+				bestM = matchM;
+				bestC = matchC;
+			}
+			matches[i][j] = bestM;
+			cost[i][j] = bestC;
+		}
+	}
+
+	const matched = new Set<number>();
+	let i = H;
+	let j = B;
+	while (i > 0 && j > 0) {
+		const matchC =
+			cost[i - 1][j - 1] + Math.abs(sortedHead[i - 1].line - sortedBase[j - 1]);
+		if (
+			matches[i][j] === matches[i - 1][j - 1] + 1 &&
+			cost[i][j] === matchC
+		) {
+			matched.add(sortedHead[i - 1].originalIndex);
+			i--;
+			j--;
+		} else if (
+			matches[i][j] === matches[i - 1][j] &&
+			cost[i][j] === cost[i - 1][j]
+		) {
+			i--;
+		} else {
+			j--;
+		}
+	}
+	return matched;
+}
+
+export function labelNewVsExisting(
 	headResult: FileResult,
 	baseResult: FileResult,
 ): void {
+	const baseFailuresByIdentity = new Map<string, ParsedFailure[]>();
+	for (const failure of baseResult.failures) {
+		const key = failureIdentity(failure);
+		const failures = baseFailuresByIdentity.get(key) ?? [];
+		failures.push(failure);
+		baseFailuresByIdentity.set(key, failures);
+	}
+
+	const headFailuresByIdentity = new Map<string, ParsedFailure[]>();
 	for (const failure of headResult.failures) {
-		const existsOnBase = baseResult.failures.some(
-			(base) =>
-				base.fnName === failure.fnName &&
-				base.reason === failure.reason &&
-				base.line === failure.line,
+		const key = failureIdentity(failure);
+		const failures = headFailuresByIdentity.get(key) ?? [];
+		failures.push(failure);
+		headFailuresByIdentity.set(key, failures);
+	}
+
+	for (const [key, headFailures] of headFailuresByIdentity) {
+		const matchedIndexes = matchExistingFailures(
+			headFailures,
+			baseFailuresByIdentity.get(key) ?? [],
 		);
-		failure.isNew = !existsOnBase;
+
+		headFailures.forEach((failure, index) => {
+			failure.isNew = !matchedIndexes.has(index);
+		});
 	}
 }
 

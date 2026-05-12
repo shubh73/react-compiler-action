@@ -28,9 +28,26 @@ vi.mock("@actions/github", () => ({
 
 // Import after mocks
 import * as core from "@actions/core";
-import { run } from "../src/main";
+import { labelNewVsExisting, run } from "../src/main";
+import type { FileResult, ParsedFailure } from "../src/types";
 
 const FIXTURES = path.resolve(__dirname, "fixtures");
+
+function failure(overrides: Partial<ParsedFailure> = {}): ParsedFailure {
+	return {
+		reason: "Cannot access refs during render",
+		description: "Refs should only be accessed outside of render.",
+		severity: "InvalidReact",
+		suggestions: [],
+		line: 10,
+		fnName: "Component",
+		...overrides,
+	};
+}
+
+function result(failures: ParsedFailure[]): FileResult {
+	return { file: "src/component.tsx", failures, skipped: [] };
+}
 
 function setupInputs(overrides: Record<string, string> = {}) {
 	const defaults: Record<string, string> = {
@@ -131,5 +148,105 @@ describe("run", () => {
 
 		expect(core.setOutput).toHaveBeenCalledWith("file-count", "0");
 		expect(core.setOutput).toHaveBeenCalledWith("failure-count", "0");
+	});
+});
+
+describe("labelNewVsExisting", () => {
+	it("matches existing failures across line shifts", () => {
+		const head = result([failure({ line: 20 })]);
+		const base = result([failure({ line: 10 })]);
+
+		labelNewVsExisting(head, base);
+
+		expect(head.failures[0].isNew).toBe(false);
+	});
+
+	it("treats extra repeated failures as new", () => {
+		const head = result([
+			failure({ line: 10 }),
+			failure({ line: 20 }),
+			failure({ line: 30 }),
+		]);
+		const base = result([failure({ line: 10 }), failure({ line: 20 })]);
+
+		labelNewVsExisting(head, base);
+
+		expect(head.failures.map((f) => f.isNew)).toEqual([false, false, true]);
+	});
+
+	it("matches repeated failures by closest line rather than head order", () => {
+		const head = result([failure({ line: 5 }), failure({ line: 100 })]);
+		const base = result([failure({ line: 90 })]);
+
+		labelNewVsExisting(head, base);
+
+		expect(head.failures.map((f) => f.isNew)).toEqual([true, false]);
+	});
+
+	it("breaks equal-distance matches by occurrence order", () => {
+		const head = result([
+			failure({ line: 10 }),
+			failure({ line: 20 }),
+			failure({ line: 30 }),
+			failure({ line: 90 }),
+		]);
+		const base = result([
+			failure({ line: 20 }),
+			failure({ line: 30 }),
+			failure({ line: 50 }),
+		]);
+
+		labelNewVsExisting(head, base);
+
+		expect(head.failures.map((f) => f.isNew)).toEqual([
+			true,
+			false,
+			false,
+			false,
+		]);
+	});
+
+	it("matches existing failures with anonymous components", () => {
+		const head = result([failure({ fnName: undefined, line: 20 })]);
+		const base = result([failure({ fnName: undefined, line: 10 })]);
+
+		labelNewVsExisting(head, base);
+
+		expect(head.failures[0].isNew).toBe(false);
+	});
+
+	it("does not match different compiler identities", () => {
+		const head = result([failure({ reason: "Cannot mutate props" })]);
+		const base = result([
+			failure({ reason: "Cannot access refs during render" }),
+		]);
+
+		labelNewVsExisting(head, base);
+
+		expect(head.failures[0].isNew).toBe(true);
+	});
+
+	it("identifies the genuinely new failure when an earlier insertion shifts existing ones", () => {
+		// base [3, 5] → head [1, 4, 6]: a new failure at line 1, base shifted +1.
+		// Correct labeling: head[0] is new, head[1] matches base[0], head[2] matches base[1].
+		const head = result([
+			failure({ line: 1 }),
+			failure({ line: 4 }),
+			failure({ line: 6 }),
+		]);
+		const base = result([failure({ line: 3 }), failure({ line: 5 })]);
+
+		labelNewVsExisting(head, base);
+
+		expect(head.failures.map((f) => f.isNew)).toEqual([true, false, false]);
+	});
+
+	it("marks every head failure as new when base has no failures", () => {
+		const head = result([failure({ line: 10 }), failure({ line: 20 })]);
+		const base = result([]);
+
+		labelNewVsExisting(head, base);
+
+		expect(head.failures.map((f) => f.isNew)).toEqual([true, true]);
 	});
 });

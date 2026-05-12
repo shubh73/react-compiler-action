@@ -3,22 +3,34 @@ export type EventLocation = {
 	end?: { line?: number; column?: number };
 };
 
+export type CompilerDiagnosticDetail =
+	| {
+			kind: "error";
+			loc: EventLocation | null;
+			message: string;
+	  }
+	| {
+			kind: "hint";
+			message: string;
+	  };
+
 export type CompileErrorEvent = {
 	kind: "CompileError";
-	fnLoc?: EventLocation;
+	fnLoc: EventLocation | null;
+	// detail is a CompilerDiagnostic or (deprecated) CompilerErrorDetail instance.
+	// Both expose fields via getters over `options`; only CompilerDiagnostic.options carries `details`.
 	detail: {
 		reason: string;
 		description?: string | null;
 		severity: string;
 		loc?: EventLocation | null;
 		suggestions?: Array<{ description: string; [key: string]: unknown }> | null;
-		// CompilerErrorDetail class instances expose fields via getters
-		// AND have an `options` property with the same shape
 		options?: {
 			reason?: string;
 			description?: string | null;
 			severity?: string;
 			loc?: EventLocation | null;
+			details?: Array<CompilerDiagnosticDetail> | null;
 			suggestions?:
 				| Array<{ description: string; [key: string]: unknown }>
 				| null;
@@ -26,20 +38,32 @@ export type CompileErrorEvent = {
 	};
 };
 
+export type CompileDiagnosticEvent = {
+	kind: "CompileDiagnostic";
+	fnLoc: EventLocation | null;
+	detail: {
+		category: string;
+		reason: string;
+		description?: string | null;
+		loc: EventLocation | null;
+	};
+};
+
 export type PipelineErrorEvent = {
 	kind: "PipelineError";
-	fnLoc?: EventLocation;
+	fnLoc: EventLocation | null;
 	data: string;
 };
 
 export type CompileSuccessEvent = {
 	kind: "CompileSuccess";
-	fnLoc?: EventLocation;
+	fnLoc: EventLocation | null;
 	fnName?: string | null;
 };
 
 export type CompilerEvent =
 	| CompileErrorEvent
+	| CompileDiagnosticEvent
 	| PipelineErrorEvent
 	| CompileSuccessEvent
 	| { kind: string; [key: string]: unknown };

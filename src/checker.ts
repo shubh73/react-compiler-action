@@ -9,12 +9,15 @@ import reactCompilerPlugin, {
 
 import type {
 	CompilerEvent,
+	CompileDiagnosticEvent,
 	CompileErrorEvent,
+	CompilerDiagnosticDetail,
 	PipelineErrorEvent,
 	CompilationMode,
 	FileResult,
 	ParsedFailure,
 	SkippedFunction,
+	EventLocation,
 } from "./types";
 
 function extractFnNameFromSource(
@@ -40,34 +43,74 @@ function extractFnNameFromSource(
 	return undefined;
 }
 
-function parseCompileError(
+function getLocationLine(
+	loc: EventLocation | null | undefined,
+): number | undefined {
+	const line = loc?.start?.line;
+	return typeof line === "number" ? line : undefined;
+}
+
+// Matches CompilerDiagnostic.primaryLocation(): returns the first `kind: "error"` detail's loc.
+function getFirstDetailLine(
+	details: Array<CompilerDiagnosticDetail> | null | undefined,
+): number | undefined {
+	for (const detail of details ?? []) {
+		if (detail.kind !== "error") continue;
+		const line = getLocationLine(detail.loc);
+		if (line !== undefined) return line;
+	}
+	return undefined;
+}
+
+export function parseCompileError(
 	event: CompileErrorEvent,
 	sourceLines: string[],
 ): ParsedFailure {
 	const detail = event.detail;
-	// detail may be a CompilerErrorDetail class (has .options) or plain options object
-	const reason =
-		detail.options?.reason ?? detail.reason ?? "Unknown";
-	const description =
-		detail.options?.description ?? detail.description ?? "";
-	const severity =
-		detail.options?.severity ?? detail.severity ?? "";
-	const rawSuggestions =
-		detail.options?.suggestions ?? detail.suggestions ?? [];
-	const suggestions = (rawSuggestions ?? []).map((s) =>
-		typeof s === "string" ? s : s.description,
-	);
+	const suggestions = (detail.suggestions ?? []).map((s) => s.description);
+	// CompilerDiagnostic carries diagnostic-level locations via options.details;
+	// CompilerErrorDetail exposes a single loc via its getter.
 	const line =
-		detail.options?.loc?.start?.line ??
-		detail.loc?.start?.line ??
-		event.fnLoc?.start?.line ??
+		getFirstDetailLine(detail.options?.details) ??
+		getLocationLine(detail.loc) ??
+		getLocationLine(event.fnLoc) ??
 		1;
 	const fnName = extractFnNameFromSource(
 		sourceLines,
 		event.fnLoc?.start?.line ?? line,
 	);
 
-	return { reason, description, severity, suggestions, line, fnName };
+	return {
+		reason: detail.reason,
+		description: detail.description ?? "",
+		severity: detail.severity,
+		suggestions,
+		line,
+		fnName,
+	};
+}
+
+export function parseCompileDiagnostic(
+	event: CompileDiagnosticEvent,
+	sourceLines: string[],
+): ParsedFailure {
+	const line =
+		getLocationLine(event.detail.loc) ??
+		getLocationLine(event.fnLoc) ??
+		1;
+	const fnName = extractFnNameFromSource(
+		sourceLines,
+		event.fnLoc?.start?.line ?? line,
+	);
+
+	return {
+		reason: event.detail.reason,
+		description: event.detail.description ?? "",
+		severity: event.detail.category,
+		suggestions: [],
+		line,
+		fnName,
+	};
 }
 
 function parsePipelineError(
@@ -85,6 +128,31 @@ function parsePipelineError(
 		line,
 		fnName,
 	};
+}
+
+function failureKey(failure: ParsedFailure): string {
+	return JSON.stringify([
+		failure.fnName ?? "",
+		failure.line,
+		failure.severity,
+		failure.reason,
+		failure.description,
+		failure.suggestions,
+	]);
+}
+
+export function dedupeFailures(failures: ParsedFailure[]): ParsedFailure[] {
+	const seen = new Set<string>();
+	const deduped: ParsedFailure[] = [];
+
+	for (const failure of failures) {
+		const key = failureKey(failure);
+		if (seen.has(key)) continue;
+		seen.add(key);
+		deduped.push(failure);
+	}
+
+	return deduped;
 }
 
 // The compiler emits no events for opt-out directives, so we detect them from the AST
@@ -235,6 +303,10 @@ export function checkCode(
 			failures.push(
 				parseCompileError(event as CompileErrorEvent, sourceLines),
 			);
+		} else if (event.kind === "CompileDiagnostic") {
+			failures.push(
+				parseCompileDiagnostic(event as CompileDiagnosticEvent, sourceLines),
+			);
 		} else if (event.kind === "PipelineError") {
 			failures.push(
 				parsePipelineError(event as PipelineErrorEvent, sourceLines),
@@ -242,7 +314,7 @@ export function checkCode(
 		}
 	}
 
-	return { file: filename, failures, skipped };
+	return { file: filename, failures: dedupeFailures(failures), skipped };
 }
 
 export function checkFile(
