@@ -39,6 +39,25 @@ describe("checkFile", () => {
     expect(result.skipped[0].reason).toBe("use no memo");
   });
 
+  it("reports 'use memo' opt-ins separately from failures", () => {
+    const result = checkCode(
+      `
+export function ExplicitMemo() {
+  "use memo";
+  return <div />;
+}
+      `,
+      "explicit-memo.tsx",
+      "annotation"
+    );
+
+    expect(result.error).toBeUndefined();
+    expect(result.failures).toHaveLength(0);
+    expect(result.optedIn).toEqual([
+      { fnName: "ExplicitMemo", line: 2, reason: "use memo" },
+    ]);
+  });
+
   it("handles non-existent files gracefully", () => {
     const result = checkFile("/does/not/exist.tsx", "infer");
 
@@ -67,6 +86,7 @@ describe("checkCode", () => {
 
     expect(codeResult.failures.length).toBe(fileResult.failures.length);
     expect(codeResult.skipped.length).toBe(fileResult.skipped.length);
+    expect(codeResult.optedIn?.length ?? 0).toBe(fileResult.optedIn?.length ?? 0);
     expect(codeResult.error).toBe(fileResult.error);
 
     for (let i = 0; i < codeResult.failures.length; i++) {
@@ -112,12 +132,14 @@ export function RefAccess() {
         description: "",
         severity: "InvalidReact",
         options: {
-          reason: "Cannot mutate props",
-          severity: "InvalidReact",
           details: [
             { kind: "hint", message: "Try moving this to an effect." },
-            { kind: "error", loc: null },
-            { kind: "error", loc: { start: { line: 9, column: 0 } } },
+            { kind: "error", loc: null, message: null },
+            {
+              kind: "error",
+              loc: { start: { line: 9, column: 0 } },
+              message: "Mutating props is not supported.",
+            },
           ],
         },
       },
@@ -152,7 +174,6 @@ export function RefAccess() {
         reason: "Cannot mutate props",
         description: "",
         severity: "InvalidReact",
-        options: { reason: "Cannot mutate props", severity: "InvalidReact" },
       },
     };
 

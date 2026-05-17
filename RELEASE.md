@@ -3,7 +3,7 @@
 ## Checklist
 
 1. Update `version` in `package.json`
-2. `bun install` to refresh the lockfile
+2. If dependencies changed, run `bun install` to refresh the lockfile
 3. `bun run all` (type check + test + build)
 4. Commit `src/`, `dist/`, and `package.json` together (the `check-dist`
    workflow enforces that `dist/` matches `src/`) and push to `main`

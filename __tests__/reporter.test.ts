@@ -90,8 +90,28 @@ describe("buildReport", () => {
 
     const report = buildReport(results, undefined, undefined);
 
+    expect(report).toContain("1 function opted out of compilation");
     expect(report).toContain("use no memo");
     expect(report).toContain("useCustomHook");
+  });
+
+  it("includes 'use memo' opt-ins in a collapsible section", () => {
+    const results: FileResult[] = [
+      {
+        file: "src/component.tsx",
+        failures: [],
+        skipped: [],
+        optedIn: [
+          { fnName: "ExplicitMemo", line: 3, reason: "use memo" },
+        ],
+      },
+    ];
+
+    const report = buildReport(results, undefined, undefined);
+
+    expect(report).toContain("1 function opted into compilation");
+    expect(report).toContain("ExplicitMemo");
+    expect(report).toContain("(use memo)");
   });
 
   it("includes the 'Fix with AI' section", () => {

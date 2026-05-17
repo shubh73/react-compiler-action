@@ -226,7 +226,7 @@ export async function run(): Promise<void> {
 		} else {
 			if (inputs.changedFilesOnly && !baseRef) {
 				core.info(
-					"No base ref found (not a PR event?). Falling back to full scan.",
+					"No base ref found (likely not a pull_request event). Falling back to full scan.",
 				);
 			}
 			core.info("Scanning all files...");
@@ -250,7 +250,7 @@ export async function run(): Promise<void> {
 			core.info("No matching files to check.");
 		} else {
 			core.info(
-				`Checking ${files.length} file(s) with compilation mode "${inputs.compilationMode}"...`,
+				`Checking ${files.length} ${files.length === 1 ? "file" : "files"} with compilation mode "${inputs.compilationMode}"...`,
 			);
 		}
 
@@ -344,16 +344,16 @@ export async function run(): Promise<void> {
 		if (totalFailures > 0) {
 			if (hasPrComparison) {
 				core.info(
-					`${newFailures} new + ${existingFailures} existing issue(s) found.`,
+					`${newFailures} new + ${existingFailures} existing ${totalFailures === 1 ? "issue" : "issues"} found.`,
 				);
 			} else {
 				core.info(
-					`${totalFailures} component(s) not optimized by React Compiler.`,
+					`${totalFailures} compiler ${totalFailures === 1 ? "issue" : "issues"} found.`,
 				);
 			}
 		} else if (files.length > 0) {
 			core.info(
-				`All ${files.length} file(s) passed. React Compiler can memoize every component.`,
+				`All ${files.length} ${files.length === 1 ? "file" : "files"} passed. No compiler issues found.`,
 			);
 		}
 
@@ -362,8 +362,8 @@ export async function run(): Promise<void> {
 			if (failCount > 0) {
 				core.setFailed(
 					hasPrComparison
-						? `${newFailures} new issue(s) introduced in this PR.`
-						: `${totalFailures} component(s) skipped by React Compiler.`,
+						? `${newFailures} new compiler ${newFailures === 1 ? "issue" : "issues"} introduced in this PR.`
+						: `${totalFailures} compiler ${totalFailures === 1 ? "issue" : "issues"} found.`,
 				);
 			}
 		}

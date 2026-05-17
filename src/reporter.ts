@@ -1,6 +1,11 @@
 import * as core from "@actions/core";
 
-import type { AnnotationLevel, FileResult, ParsedFailure } from "./types";
+import type {
+	AnnotationLevel,
+	FileResult,
+	MemoDirectiveFunction,
+	ParsedFailure,
+} from "./types";
 
 const MAX_ANNOTATION_MESSAGE_LENGTH = 150;
 const SERVER_URL = process.env.GITHUB_SERVER_URL ?? "https://github.com";
@@ -26,8 +31,8 @@ export function emitAnnotations(
 			const prefix = failure.isNew === true ? "[New] " : "";
 			const fullMessage =
 				failure.description && failure.description !== failure.reason
-					? `${prefix}${name} skipped: ${failure.reason}: ${failure.description}`
-					: `${prefix}${name} skipped: ${failure.reason}`;
+					? `${prefix}${name}: ${failure.reason}: ${failure.description}`
+					: `${prefix}${name}: ${failure.reason}`;
 
 			const message = truncate(fullMessage, MAX_ANNOTATION_MESSAGE_LENGTH);
 			const properties = {
@@ -105,12 +110,17 @@ export function buildReport(
 		0,
 	);
 	const totalSkipped = results.reduce((n, r) => n + r.skipped.length, 0);
+	const totalOptedIn = results.reduce(
+		(n, r) => n + (r.optedIn?.length ?? 0),
+		0,
+	);
 	const totalFiles = results.length;
 
 	if (
 		totalFailures === 0 &&
 		filesWithErrors.length === 0 &&
 		totalSkipped === 0 &&
+		totalOptedIn === 0 &&
 		notes.length === 0
 	)
 		return null;
@@ -153,10 +163,11 @@ export function buildReport(
 			if (newFailures > 0) stats.push(`**${newFailures}** new`);
 			if (existingFailures > 0) stats.push(`${existingFailures} existing`);
 		} else {
-			stats.push(`**${totalFailures}** skipped`);
+			stats.push(`**${totalFailures}** issues`);
 		}
 	}
 	if (filesWithErrors.length > 0) stats.push(`${filesWithErrors.length} errors`);
+	if (totalOptedIn > 0) stats.push(`${totalOptedIn} opted into compilation`);
 	lines.push(stats.join("  ·  "));
 	lines.push("");
 
@@ -234,7 +245,7 @@ export function buildReport(
 			lines.push("");
 			lines.push("```");
 			lines.push(
-				"Fix the following React Compiler issues. The compiler skipped these components because they violate the Rules of React.",
+				"Fix the following React Compiler issues. The compiler reported these because they violate the Rules of React.",
 			);
 			lines.push("");
 			lines.push("Rules:");
@@ -275,25 +286,39 @@ export function buildReport(
 		}
 	}
 
-	// Opt-outs (collapsed)
-	if (totalSkipped > 0) {
+	const renderDirectiveSection = (
+		summary: string,
+		pick: (result: FileResult) => MemoDirectiveFunction[],
+	) => {
 		lines.push("");
 		lines.push("<details>");
-		lines.push(
-			`<summary>${totalSkipped} opted out ("use no memo")</summary>`,
-		);
+		lines.push(`<summary>${summary}</summary>`);
 		lines.push("");
-
 		for (const result of results) {
-			for (const skip of result.skipped) {
-				const name = skip.fnName ?? "(anonymous)";
-				lines.push(`- \`${result.file}:${skip.line}\` \`${name}\``);
+			for (const fn of pick(result)) {
+				const name = fn.fnName ?? "(anonymous)";
+				lines.push(
+					`- \`${result.file}:${fn.line}\` \`${name}\` (${fn.reason})`,
+				);
 			}
 		}
-
 		lines.push("");
 		lines.push("</details>");
-	}
+	};
+
+		if (totalSkipped > 0) {
+			renderDirectiveSection(
+				`${totalSkipped} function${totalSkipped === 1 ? "" : "s"} opted out of compilation`,
+				(r) => r.skipped,
+			);
+		}
+
+		if (totalOptedIn > 0) {
+			renderDirectiveSection(
+				`${totalOptedIn} function${totalOptedIn === 1 ? "" : "s"} opted into compilation`,
+				(r) => r.optedIn ?? [],
+			);
+		}
 
 	// Errors (collapsed)
 	if (filesWithErrors.length > 0) {

@@ -4,6 +4,7 @@ import * as fs from "fs";
 import * as path from "path";
 
 import reactCompilerPlugin, {
+	OPT_IN_DIRECTIVES,
 	OPT_OUT_DIRECTIVES,
 } from "babel-plugin-react-compiler";
 
@@ -16,7 +17,7 @@ import type {
 	CompilationMode,
 	FileResult,
 	ParsedFailure,
-	SkippedFunction,
+	MemoDirectiveFunction,
 	EventLocation,
 } from "./types";
 
@@ -46,8 +47,7 @@ function extractFnNameFromSource(
 function getLocationLine(
 	loc: EventLocation | null | undefined,
 ): number | undefined {
-	const line = loc?.start?.line;
-	return typeof line === "number" ? line : undefined;
+	return loc?.start.line;
 }
 
 // Matches CompilerDiagnostic.primaryLocation(): returns the first `kind: "error"` detail's loc.
@@ -77,7 +77,7 @@ export function parseCompileError(
 		1;
 	const fnName = extractFnNameFromSource(
 		sourceLines,
-		event.fnLoc?.start?.line ?? line,
+		event.fnLoc?.start.line ?? line,
 	);
 
 	return {
@@ -100,7 +100,7 @@ export function parseCompileDiagnostic(
 		1;
 	const fnName = extractFnNameFromSource(
 		sourceLines,
-		event.fnLoc?.start?.line ?? line,
+		event.fnLoc?.start.line ?? line,
 	);
 
 	return {
@@ -117,13 +117,13 @@ function parsePipelineError(
 	event: PipelineErrorEvent,
 	sourceLines: string[],
 ): ParsedFailure {
-	const line = event.fnLoc?.start?.line ?? 1;
+	const line = event.fnLoc?.start.line ?? 1;
 	const fnName = extractFnNameFromSource(sourceLines, line);
 
 	return {
 		reason: event.data || "Pipeline error",
 		description: "",
-		severity: "",
+		severity: "PipelineError",
 		suggestions: [],
 		line,
 		fnName,
@@ -155,12 +155,24 @@ export function dedupeFailures(failures: ParsedFailure[]): ParsedFailure[] {
 	return deduped;
 }
 
-// The compiler emits no events for opt-out directives, so we detect them from the AST
-function findUseNoMemoFunctions(
+// The compiler emits no events for memo directives, so we detect them from the AST.
+function findMemoDirectiveFunctions(
 	ast: ReturnType<typeof parser.parse>,
 	sourceLines: string[],
-): SkippedFunction[] {
-	const skipped: SkippedFunction[] = [];
+): { skipped: MemoDirectiveFunction[]; optedIn: MemoDirectiveFunction[] } {
+	const skipped: MemoDirectiveFunction[] = [];
+	const optedIn: MemoDirectiveFunction[] = [];
+
+	// Two functions can't share a source line, so (line, reason) is unique enough.
+	function pushUnique(list: MemoDirectiveFunction[], item: MemoDirectiveFunction) {
+		if (
+			!list.some(
+				(entry) => entry.line === item.line && entry.reason === item.reason,
+			)
+		) {
+			list.push(item);
+		}
+	}
 
 	function checkDirectives(
 		// biome-ignore lint: any is needed for loose AST node typing
@@ -171,8 +183,11 @@ function findUseNoMemoFunctions(
 		if (!directives) return;
 		for (const directive of directives) {
 			const value = directive?.value?.value ?? directive?.expression?.value;
-			if (typeof value === "string" && OPT_OUT_DIRECTIVES.has(value)) {
-				skipped.push({ fnName, line, reason: value });
+			if (typeof value !== "string") continue;
+			if (OPT_OUT_DIRECTIVES.has(value)) {
+				pushUnique(skipped, { fnName, line, reason: value });
+			} else if (OPT_IN_DIRECTIVES.has(value)) {
+				pushUnique(optedIn, { fnName, line, reason: value });
 			}
 		}
 	}
@@ -187,34 +202,18 @@ function findUseNoMemoFunctions(
 		) {
 			const body = node.body;
 			if (body?.type === "BlockStatement") {
+				const line = node.loc?.start?.line ?? 1;
 				const fnName =
-					node.id?.name ??
-					extractFnNameFromSource(sourceLines, node.loc?.start?.line ?? 1);
-				checkDirectives(
-					body.directives,
-					fnName,
-					node.loc?.start?.line ?? 1,
-				);
-				// Some parsers represent directives as expression statements
+					node.id?.name ?? extractFnNameFromSource(sourceLines, line);
+				checkDirectives(body.directives, fnName, line);
+				// Babel under errorRecovery may emit a directive as an ExpressionStatement
+				// instead of a Directive node; reuse checkDirectives for routing.
 				const firstStmt = body.body?.[0];
 				if (
 					firstStmt?.type === "ExpressionStatement" &&
-					firstStmt.expression?.type === "StringLiteral" &&
-					OPT_OUT_DIRECTIVES.has(firstStmt.expression.value)
+					firstStmt.expression?.type === "StringLiteral"
 				) {
-					const fnName =
-						node.id?.name ??
-						extractFnNameFromSource(
-							sourceLines,
-							node.loc?.start?.line ?? 1,
-						);
-					if (!skipped.some((s) => s.line === (node.loc?.start?.line ?? 1))) {
-						skipped.push({
-							fnName,
-							line: node.loc?.start?.line ?? 1,
-							reason: "use no memo",
-						});
-					}
+					checkDirectives([firstStmt], fnName, line);
 				}
 			}
 		}
@@ -235,7 +234,7 @@ function findUseNoMemoFunctions(
 	}
 
 	walkNode(ast.program);
-	return skipped;
+	return { skipped, optedIn };
 }
 
 export function checkCode(
@@ -257,6 +256,7 @@ export function checkCode(
 			file: filename,
 			failures: [],
 			skipped: [],
+			optedIn: [],
 			error: `Parse error: ${(e as Error).message}`,
 		};
 	}
@@ -289,13 +289,14 @@ export function checkCode(
 			file: filename,
 			failures: [],
 			skipped: [],
+			optedIn: [],
 			error: `Compiler error: ${(e as Error).message}`,
 		};
 	}
 
 	const sourceLines = code.split("\n");
 
-	const skipped = findUseNoMemoFunctions(ast, sourceLines);
+	const { skipped, optedIn } = findMemoDirectiveFunctions(ast, sourceLines);
 
 	const failures: ParsedFailure[] = [];
 	for (const event of events) {
@@ -314,7 +315,12 @@ export function checkCode(
 		}
 	}
 
-	return { file: filename, failures: dedupeFailures(failures), skipped };
+	return {
+		file: filename,
+		failures: dedupeFailures(failures),
+		skipped,
+		optedIn,
+	};
 }
 
 export function checkFile(
@@ -331,6 +337,7 @@ export function checkFile(
 			file: filePath,
 			failures: [],
 			skipped: [],
+			optedIn: [],
 			error: `Could not read file: ${filePath}`,
 		};
 	}

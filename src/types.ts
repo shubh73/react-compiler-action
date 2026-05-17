@@ -1,13 +1,14 @@
+// Matches @babel/types SourceLocation: start/end are required and contain line/column.
 export type EventLocation = {
-	start?: { line?: number; column?: number };
-	end?: { line?: number; column?: number };
+	start: { line: number; column: number };
+	end?: { line: number; column: number };
 };
 
 export type CompilerDiagnosticDetail =
 	| {
 			kind: "error";
 			loc: EventLocation | null;
-			message: string;
+			message: string | null;
 	  }
 	| {
 			kind: "hint";
@@ -17,8 +18,8 @@ export type CompilerDiagnosticDetail =
 export type CompileErrorEvent = {
 	kind: "CompileError";
 	fnLoc: EventLocation | null;
-	// detail is a CompilerDiagnostic or (deprecated) CompilerErrorDetail instance.
-	// Both expose fields via getters over `options`; only CompilerDiagnostic.options carries `details`.
+	// detail is a CompilerDiagnostic or CompilerErrorDetail instance.
+	// Both expose parsed fields via getters; only CompilerDiagnostic.options carries details.
 	detail: {
 		reason: string;
 		description?: string | null;
@@ -26,14 +27,7 @@ export type CompileErrorEvent = {
 		loc?: EventLocation | null;
 		suggestions?: Array<{ description: string; [key: string]: unknown }> | null;
 		options?: {
-			reason?: string;
-			description?: string | null;
-			severity?: string;
-			loc?: EventLocation | null;
 			details?: Array<CompilerDiagnosticDetail> | null;
-			suggestions?:
-				| Array<{ description: string; [key: string]: unknown }>
-				| null;
 		};
 	};
 };
@@ -82,11 +76,12 @@ export type ParsedFailure = {
 export type FileResult = {
 	file: string;
 	failures: ParsedFailure[];
-	skipped: SkippedFunction[];
+	skipped: MemoDirectiveFunction[];
+	optedIn?: MemoDirectiveFunction[];
 	error?: string;
 };
 
-export type SkippedFunction = {
+export type MemoDirectiveFunction = {
 	fnName: string | undefined;
 	line: number;
 	reason: string;
